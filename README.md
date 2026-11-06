@@ -1,5 +1,7 @@
 # Loop Steady
 
+![Loop Steady](assets/og-image.png)
+
 A single-page web app that steadies a handheld video so it loops without a visible jump. It runs entirely in the browser, so the video is never uploaded.
 
 **[Open the app](https://puripant.github.io/loop-steady/)** (after GitHub Pages is turned on)

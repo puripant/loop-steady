@@ -1,0 +1,1020 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>Loop Steady</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,750&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one narrow working column, steps stacked like a darkroom workflow; amber "safelight" accent on cool grey, teal for the tracked area. */
+:root {
+  --bg: #eef1f0;
+  --surface: #ffffff;
+  --ink: #15201d;
+  --muted: #5b6965;
+  --line: #d5dcd9;
+  --accent: #b24a12;
+  --accent-ink: #ffffff;
+  --accent-soft: #f6e3d6;
+  --accent2: #0f7a70;
+  --stage: #0e1312;
+  --warn: #8a5a00;
+  --font-display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", -apple-system, "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111514; --surface: #1a201e; --ink: #e6ece9; --muted: #97a59f; --line: #2c3532;
+    --accent: #f08a4b; --accent-ink: #1a0d05; --accent-soft: #3a2417; --accent2: #4fc4b8; --stage: #070909; --warn: #e3b04b; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111514; --surface: #1a201e; --ink: #e6ece9; --muted: #97a59f; --line: #2c3532;
+  --accent: #f08a4b; --accent-ink: #1a0d05; --accent-soft: #3a2417; --accent2: #4fc4b8; --stage: #070909; --warn: #e3b04b; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 48px;
+}
+main { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+header h1 { font-family: var(--font-display); font-weight: 750; font-size: 2.1rem; line-height: 1.05; margin: 0 0 6px; letter-spacing: -0.01em; text-wrap: balance; }
+header p { margin: 0; color: var(--muted); max-width: 62ch; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.step { font-family: var(--font-mono); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); }
+h2 { font-family: var(--font-display); font-weight: 600; font-size: 1.2rem; margin: 0; text-wrap: balance; }
+h3 { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0; font-weight: 600; }
+.hint { margin: 0; color: var(--muted); font-size: 0.9rem; max-width: 62ch; }
+.drop { position: relative; border: 1.5px dashed var(--line); border-radius: 12px; padding: 22px 16px; text-align: center; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.drop:hover, .drop:focus-within { border-color: var(--accent); }
+.drop strong { font-weight: 600; }
+.drop span { color: var(--muted); font-size: 0.88rem; }
+.drop input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.idea { width: 100%; max-width: 360px; height: auto; color: var(--muted); }
+.status { font-size: 0.9rem; color: var(--muted); }
+.bar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+.bar > i { display: block; height: 100%; width: 0%; background: var(--accent); transition: width .15s linear; }
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.seg label { border: 1px solid var(--line); border-radius: 10px; padding: 10px; cursor: pointer; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.seg label b { font-weight: 600; font-size: 0.95rem; }
+.seg label small { color: var(--muted); font-size: 0.78rem; line-height: 1.3; }
+.seg input, .chips input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.seg label:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.seg label:has(input:focus-visible), .chips label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (max-width: 460px) { .seg { grid-template-columns: 1fr; } }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips label { position: relative; border: 1px solid var(--line); border-radius: 999px; padding: 5px 13px; cursor: pointer; font-size: 0.88rem; font-variant-numeric: tabular-nums; }
+.chips label:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); color: var(--ink); font-weight: 600; }
+.slider { display: flex; align-items: center; gap: 10px; font-size: 0.88rem; }
+.slider input { flex: 1; accent-color: var(--accent); min-width: 0; }
+.slider output { font-family: var(--font-mono); font-size: 0.85rem; min-width: 4.5ch; text-align: right; font-variant-numeric: tabular-nums; }
+.toggle { display: flex; gap: 10px; align-items: flex-start; font-size: 0.92rem; }
+.toggle input { margin-top: 4px; accent-color: var(--accent); }
+.toggle small { display: block; color: var(--muted); }
+.toggles { display: flex; flex-direction: column; gap: 10px; }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 0; }
+@media (max-width: 460px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+.stats div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.stats dt { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.stats dd { margin: 0; font-family: var(--font-mono); font-size: 0.92rem; font-variant-numeric: tabular-nums; }
+.plot { width: 100%; height: 150px; display: block; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.78rem; color: var(--muted); }
+.legend i { display: inline-block; width: 14px; height: 2px; vertical-align: middle; margin-right: 5px; background: var(--muted); }
+.legend i.a { background: var(--accent); }
+.legend i.t { background: var(--accent2); }
+.warn { color: var(--warn); font-size: 0.88rem; }
+button { font: inherit; font-weight: 600; border-radius: 10px; padding: 12px 16px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); cursor: pointer; }
+button.ghost { background: transparent; color: var(--accent); }
+button.small { padding: 6px 12px; font-size: 0.85rem; }
+button:disabled { opacity: 0.45; cursor: default; }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.row button { flex: 1 1 160px; }
+.stage { background: var(--stage); border-radius: 10px; display: flex; justify-content: center; align-items: center; overflow: hidden; }
+.stage canvas, .stage video { display: block; max-width: 100%; max-height: 66vh; width: auto; height: auto; }
+#roiCv { touch-action: none; cursor: crosshair; }
+.timeline { display: flex; align-items: center; gap: 10px; }
+.timeline input { flex: 1; min-width: 0; accent-color: var(--accent); }
+.timeline output { font-family: var(--font-mono); font-size: 0.82rem; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.timeline button { flex: none; width: 44px; height: 40px; padding: 0; display: grid; place-items: center; }
+#cube { width: 100%; aspect-ratio: 4 / 3; display: block; touch-action: none; cursor: grab; border-radius: 10px; background: var(--bg); }
+.srcvid { position: fixed; left: 0; top: 0; width: 4px; height: 4px; opacity: 0.01; pointer-events: none; }
+canvas.work { display: none; }
+.fine { font-size: 0.8rem; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { .bar > i { transition: none; } }
+</style>
+
+<main>
+  <header>
+    <h1>Loop Steady</h1>
+    <p>Holds the part of a handheld clip you choose perfectly still, so the loop doesn't jump. It corrects shift and tilt, then crops away the edges that move. Everything runs on this device and your video is never uploaded.</p>
+  </header>
+
+  <section class="panel" id="p-pick">
+    <div class="step">Step 1</div>
+    <h2>Choose a video</h2>
+    <label class="drop" id="drop">
+      <svg class="idea" viewBox="0 0 360 90" aria-hidden="true">
+        <g fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="10" y="14" width="96" height="62" rx="4" transform="rotate(-4 58 45)"/>
+          <rect x="22" y="18" width="96" height="62" rx="4" stroke-dasharray="4 3"/>
+          <path d="M140 45h60" /><path d="M192 38l8 7-8 7"/>
+          <rect x="226" y="16" width="110" height="58" rx="4"/>
+        </g>
+        <rect x="238" y="25" width="86" height="40" rx="3" fill="none" stroke="var(--accent)" stroke-width="2"/>
+        <rect x="262" y="34" width="26" height="20" fill="none" stroke="var(--accent2)" stroke-width="1.5" stroke-dasharray="3 2"/>
+      </svg>
+      <strong>Tap to pick a clip</strong>
+      <span>Short clips (2–20 s) work best. MP4 or MOV from your camera roll.</span>
+      <input type="file" id="file" accept="video/*">
+    </label>
+    <div id="analysis" hidden>
+      <div class="status" id="status">Loading…</div>
+      <div class="bar" style="margin-top:8px"><i id="prog"></i></div>
+      <div class="row" style="margin-top:10px"><button class="ghost" id="startBtn" hidden>Continue reading frames</button></div>
+    </div>
+  </section>
+
+  <section class="panel" id="p-roi" hidden>
+    <div class="step">Step 2</div>
+    <h2>Mark what should stay still</h2>
+    <p class="hint">Drag a box around something fixed with clear detail: a building, a table edge, a sign. Leave out people, water, leaves and sky. Drag inside the box to move it.</p>
+    <div class="stage"><canvas id="roiCv" aria-label="First frame. Drag to mark the area to hold still."></canvas></div>
+    <div class="row">
+      <button class="ghost small" id="wholeBtn" style="flex:none">Use whole frame</button>
+      <label class="toggle" style="flex:1 1 220px"><input type="checkbox" id="rot" checked><span>Correct tilt and zoom<small>Turn off to correct sideways and up-down shift only.</small></span></label>
+    </div>
+    <button id="trackBtn">Track this area</button>
+    <div id="trackBox" hidden>
+      <div class="status" id="tstatus"></div>
+      <div class="bar" style="margin-top:8px"><i id="tprog"></i></div>
+    </div>
+  </section>
+
+  <section class="panel" id="p-tune" hidden>
+    <div class="step">Step 3</div>
+    <h2>Preview and adjust</h2>
+    <div class="stage"><canvas id="pv" aria-label="Steadied preview"></canvas></div>
+    <div class="timeline">
+      <button id="playBtn" class="ghost" aria-label="Pause"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path id="playIcon" d="M4 2h3v12H4zM9 2h3v12H9z" fill="currentColor"/></svg></button>
+      <input type="range" id="time" min="0" max="1000" value="0" aria-label="Position in clip">
+      <output id="tlabel">0.0 s</output>
+    </div>
+    <label class="toggle"><input type="checkbox" id="showCut"><span>Show cut parts<small>See the whole camera frame, how it shifts and tilts, and what the crop (orange) removes. Teal is your tracked area, dots are matched detail points.</small></span></label>
+
+    <div class="field">
+      <h3>Steadying</h3>
+      <div class="seg" role="radiogroup" aria-label="Steadying mode">
+        <label><input type="radio" name="mode" id="m-lock" value="lock" checked><b>Lock</b><small>Freeze the frame like a tripod. Best for loops.</small></label>
+        <label><input type="radio" name="mode" id="m-smooth" value="smooth"><b>Smooth</b><small>Remove jitter, keep slow pans, close the loop.</small></label>
+        <label><input type="radio" name="mode" id="m-ends" value="ends"><b>Ends only</b><small>Only fix the jump between last and first frame.</small></label>
+      </div>
+      <div class="slider" id="smoothRow" hidden><span>Smoothness</span><input type="range" id="smooth" min="0.1" max="2" step="0.05" value="0.5"><output id="smoothOut">0.50 s</output></div>
+    </div>
+
+    <div class="field">
+      <h3>Crop shape</h3>
+      <div class="chips" role="radiogroup" aria-label="Crop shape">
+        <label><input type="radio" name="shape" id="sh-keep" value="keep" checked>Keep original shape</label>
+        <label><input type="radio" name="shape" id="sh-free" value="free">Largest area</label>
+      </div>
+    </div>
+
+    <div class="field">
+      <h3>Speed</h3>
+      <div class="chips" role="radiogroup" aria-label="Output speed">
+        <label><input type="radio" name="speed" id="sp-025" value="0.25">0.25×</label>
+        <label><input type="radio" name="speed" id="sp-05" value="0.5">0.5×</label>
+        <label><input type="radio" name="speed" id="sp-075" value="0.75">0.75×</label>
+        <label><input type="radio" name="speed" id="sp-1" value="1" checked>1×</label>
+        <label><input type="radio" name="speed" id="sp-15" value="1.5">1.5×</label>
+        <label><input type="radio" name="speed" id="sp-2" value="2">2×</label>
+        <label><input type="radio" name="speed" id="sp-4" value="4">4×</label>
+      </div>
+    </div>
+
+    <div class="toggles">
+      <label class="toggle"><input type="checkbox" id="fill"><span>Scale back to original size<small>Off keeps the cropped pixels at 1:1, which is sharper.</small></span></label>
+      <label class="toggle"><input type="checkbox" id="keepSound" checked><span>Keep sound<small>Sound follows the speed you pick.</small></span></label>
+    </div>
+
+    <dl class="stats">
+      <div><dt>Frame kept</dt><dd id="s-kept">–</dd></div>
+      <div><dt>Output</dt><dd id="s-out">–</dd></div>
+      <div><dt>Max tilt</dt><dd id="s-tilt">–</dd></div>
+      <div><dt>Tracked</dt><dd id="s-track">–</dd></div>
+    </dl>
+    <div class="warn" id="warn" hidden></div>
+    <canvas class="plot" id="plot" aria-label="Camera movement over time"></canvas>
+    <div class="legend"><span><i></i>Your hand (x solid, y dashed)</span><span><i class="a"></i>Steadied camera</span></div>
+  </section>
+
+  <section class="panel" id="p-cube" hidden>
+    <h2>Space-time cube</h2>
+    <p class="hint">Each slice is one moment of the clip, with time running front to back. Drag to turn the cube. The timeline above picks the highlighted slice.</p>
+    <div class="chips" role="radiogroup" aria-label="Cube view">
+      <label><input type="radio" name="cubeMode" id="cm-before" value="before">Before: raw camera</label>
+      <label><input type="radio" name="cubeMode" id="cm-after" value="after" checked>After: steadied, with crop tube</label>
+    </div>
+    <canvas id="cube" aria-label="Space-time cube of the clip"></canvas>
+    <div class="legend"><span><i></i>Camera frame edges</span><span><i class="a"></i>Crop kept in every frame</span><span><i class="t"></i>Path of tracked area</span></div>
+  </section>
+
+  <section class="panel" id="p-export" hidden>
+    <div class="step">Step 4</div>
+    <h2 id="outTitle">Export</h2>
+    <button id="renderBtn">Make loop video</button>
+    <div class="fine" id="renderNote">Rendering plays the clip once at the chosen speed, so it takes as long as the output video. Keep this screen open.</div>
+    <div class="bar" id="rbarWrap" hidden><i id="rprog"></i></div>
+    <div class="stage" id="resultStage" hidden><video id="result" playsinline muted loop controls></video></div>
+    <div class="row">
+      <button id="saveBtn" hidden>Save video</button>
+    </div>
+    <div class="status" id="saveMsg"></div>
+    <div class="fine">The video is re-encoded on export. HDR clips come out in standard colour.</div>
+  </section>
+
+  <video id="src" class="srcvid" playsinline muted preload="auto"></video>
+  <canvas class="work" id="ana"></canvas>
+  <canvas class="work" id="thumbCv"></canvas>
+  <canvas class="work" id="out"></canvas>
+</main>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const video = $('src');
+  const HAS_RVFC = 'requestVideoFrameCallback' in HTMLVideoElement.prototype;
+  const RES = 360, THUMB = 112;
+  const st = {
+    roi: { x: 0.08, y: 0.08, w: 0.84, h: 0.84 },
+    gray: [], times: [], thumbs: [], thumbCv: new Map(),
+    A: null, inl: [], lost: 0, plan: null, rotUsed: true,
+    name: 'clip', blob: null, ext: 'mp4', vw: 0, vh: 0, aw: 0, ah: 0, dur: 0,
+  };
+  window.__loopSteady = st;
+  let phase = 'idle', captureHook = null, renderHook = null, gen = 0, audio = null, wake = null;
+
+  // ---------- colours ----------
+  const colors = {};
+  function readColors() { const cs = getComputedStyle(document.documentElement); for (const k of ['ink', 'muted', 'line', 'accent', 'accent2', 'stage', 'surface', 'bg']) colors[k] = cs.getPropertyValue('--' + k).trim(); }
+  readColors();
+  try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { readColors(); redrawStatic(); }); } catch (e) {}
+  new MutationObserver(() => { readColors(); redrawStatic(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+  // ---------- small helpers ----------
+  const setProg = (el, f) => { el.style.width = Math.round(Math.max(0, Math.min(1, f)) * 100) + '%'; };
+  const once = (el, ev) => new Promise(r => el.addEventListener(ev, r, { once: true }));
+  const tick = () => new Promise(r => setTimeout(r, 0));
+  const val = name => document.querySelector(`input[name=${name}]:checked`).value;
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  async function seekTo(t) { if (Math.abs(video.currentTime - t) < 1e-3 && video.readyState >= 2) return; video.currentTime = t; await waitFor(video, ['seeked'], 3000); }
+  // Resolves true on one of the events, 'error' on a media error, false on timeout.
+  function waitFor(el, evs, ms) {
+    return new Promise(res => {
+      let done = false, tm = 0;
+      const fin = v => { if (done) return; done = true; evs.forEach(e => el.removeEventListener(e, ok)); el.removeEventListener('error', bad); clearTimeout(tm); res(v); };
+      const ok = () => fin(true), bad = () => fin('error');
+      evs.forEach(e => el.addEventListener(e, ok)); el.addEventListener('error', bad);
+      tm = setTimeout(() => fin(false), ms);
+    });
+  }
+  let tapAction = null;
+  function askTap(label, msg, fn) { $('status').textContent = msg; const b = $('startBtn'); b.textContent = label; b.hidden = false; tapAction = fn; }
+
+  // ---------- frame dispatcher ----------
+  function onVideoFrame(t) {
+    if (phase === 'capture') captureHook && captureHook(t);
+    else if (phase === 'preview') { drawPreview(t); timeUI(t); cubeTick(t); }
+    else if (phase === 'render') renderHook && renderHook(t);
+  }
+  function startFrameLoop(g) {
+    if (HAS_RVFC) {
+      const cb = (now, meta) => { if (g !== gen) return; onVideoFrame(meta.mediaTime); video.requestVideoFrameCallback(cb); };
+      video.requestVideoFrameCallback(cb);
+    } else {
+      const raf = () => { if (g !== gen) return; if (!video.paused && phase !== 'capture') onVideoFrame(video.currentTime); requestAnimationFrame(raf); };
+      requestAnimationFrame(raf);
+    }
+  }
+  video.addEventListener('seeked', () => { if (phase === 'preview' && video.paused) { drawPreview(video.currentTime); timeUI(video.currentTime); drawCube(video.currentTime); } });
+
+  // ---------- capture ----------
+  async function capture() {
+    const { aw, ah, tw, th } = st, dur = video.duration;
+    st.gray = []; st.times = []; st.thumbs = []; st.thumbCv = new Map(); st.dur = dur;
+    const minGap = Math.max(1 / 31, dur / 600);
+    const actx = $('ana').getContext('2d', { willReadFrequently: true });
+    const tctx = $('thumbCv').getContext('2d', { willReadFrequently: true });
+    const grab = t => {
+      const n = st.times.length;
+      if (n && t - st.times[n - 1] < minGap * 0.9) return;
+      actx.drawImage(video, 0, 0, aw, ah);
+      const d = actx.getImageData(0, 0, aw, ah).data, g = new Uint8Array(aw * ah);
+      for (let i = 0, j = 0; i < g.length; i++, j += 4) g[i] = (77 * d[j] + 150 * d[j + 1] + 29 * d[j + 2]) >> 8;
+      tctx.drawImage(video, 0, 0, tw, th);
+      st.thumbs.push(tctx.getImageData(0, 0, tw, th));
+      st.gray.push(g); st.times.push(t);
+    };
+    video.pause();
+    await seekTo(0);
+    const rc = st.refCv = document.createElement('canvas');
+    const rs = Math.min(1, 1280 / Math.max(st.vw, st.vh));
+    rc.width = Math.round(st.vw * rs); rc.height = Math.round(st.vh * rs);
+    rc.getContext('2d').drawImage(video, 0, 0, rc.width, rc.height);
+    grab(0);
+    if (HAS_RVFC) {
+      phase = 'capture';
+      try {
+        let watch = 0;
+        await new Promise((resolve, reject) => {
+          let last = performance.now();
+          captureHook = t => { last = performance.now(); grab(t); setProg($('prog'), t / dur); };
+          video.addEventListener('ended', resolve, { once: true });
+          watch = setInterval(() => {
+            if (video.ended || video.currentTime >= dur - 0.05) resolve();
+            else if (performance.now() - last > 4000) reject(new Error('stalled'));
+          }, 500);
+          video.loop = false; video.playbackRate = 1;
+          video.play().catch(reject);
+        });
+        clearInterval(watch);
+      } finally { captureHook = null; phase = 'idle'; video.pause(); }
+    } else {
+      for (let t = minGap; t < dur; t += minGap) { await seekTo(t); grab(t); setProg($('prog'), t / dur); }
+    }
+  }
+
+  async function readFrames() {
+    $('startBtn').hidden = true; tapAction = null;
+    $('status').textContent = 'Reading frames. The clip plays through once…';
+    try { await capture(); }
+    catch (e) { askTap('Continue reading frames', 'Playback paused before the end of the clip. Tap to continue.', readFrames); return; }
+    if (st.gray.length < 3) { $('status').textContent = 'Could not read frames from this video. Try a different clip.'; return; }
+    setProg($('prog'), 1);
+    const fps = (st.times.length - 1) / (st.times[st.times.length - 1] || 1);
+    $('status').textContent = `Read ${st.gray.length} frames (${fps.toFixed(0)} per second). Now mark the area to hold still.`;
+    $('p-roi').hidden = false;
+    drawRoi();
+    $('p-roi').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // ---------- area picker ----------
+  const roiCv = $('roiCv');
+  function drawRoi() {
+    const rc = st.refCv; if (!rc) return;
+    roiCv.width = rc.width; roiCv.height = rc.height;
+    const g = roiCv.getContext('2d'), W = rc.width, H = rc.height, r = st.roi;
+    g.drawImage(rc, 0, 0);
+    g.fillStyle = 'rgba(0,0,0,0.5)'; g.beginPath(); g.rect(0, 0, W, H); g.rect(r.x * W, r.y * H, r.w * W, r.h * H); g.fill('evenodd');
+    const lw = Math.max(2, W / 320);
+    g.strokeStyle = colors.accent2; g.lineWidth = lw; g.strokeRect(r.x * W, r.y * H, r.w * W, r.h * H);
+    const c = Math.min(r.w * W, r.h * H) * 0.18; g.lineWidth = lw * 2;
+    for (const [x, y, sx, sy] of [[r.x, r.y, 1, 1], [r.x + r.w, r.y, -1, 1], [r.x, r.y + r.h, 1, -1], [r.x + r.w, r.y + r.h, -1, -1]]) {
+      g.beginPath(); g.moveTo(x * W + sx * c, y * H); g.lineTo(x * W, y * H); g.lineTo(x * W, y * H + sy * c); g.stroke();
+    }
+  }
+  let drag = null;
+  const norm = e => { const b = roiCv.getBoundingClientRect(); return [clamp((e.clientX - b.left) / b.width, 0, 1), clamp((e.clientY - b.top) / b.height, 0, 1)]; };
+  roiCv.addEventListener('pointerdown', e => {
+    const [x, y] = norm(e), r = st.roi;
+    roiCv.setPointerCapture(e.pointerId);
+    const inside = x > r.x && x < r.x + r.w && y > r.y && y < r.y + r.h;
+    drag = inside ? { kind: 'move', x, y, r0: { ...r } } : { kind: 'new', x, y, r0: { ...r } };
+  });
+  roiCv.addEventListener('pointermove', e => {
+    if (!drag) return;
+    const [x, y] = norm(e);
+    if (drag.kind === 'move') {
+      const r = drag.r0;
+      st.roi = { ...r, x: clamp(r.x + x - drag.x, 0, 1 - r.w), y: clamp(r.y + y - drag.y, 0, 1 - r.h) };
+    } else {
+      st.roi = { x: Math.min(x, drag.x), y: Math.min(y, drag.y), w: Math.abs(x - drag.x), h: Math.abs(y - drag.y) };
+    }
+    drawRoi();
+  });
+  const endDrag = () => {
+    if (!drag) return;
+    if (st.roi.w < 0.06 || st.roi.h < 0.06) st.roi = drag.r0;
+    drag = null; drawRoi();
+  };
+  roiCv.addEventListener('pointerup', endDrag);
+  roiCv.addEventListener('pointercancel', endDrag);
+  $('wholeBtn').addEventListener('click', () => { st.roi = { x: 0.04, y: 0.04, w: 0.92, h: 0.92 }; drawRoi(); });
+
+  // ---------- tracking ----------
+  const PH = 7, PS = 15, SR = 12, WH = PH + SR + 3, BS = 2 * WH + 1;
+  const buf = new Float32Array(BS * BS), integ = new Float64Array((BS + 1) * (BS + 1));
+
+  function pickFeatures(g, w, h, r) {
+    const M = PH + 3;
+    const x0 = Math.max(M, Math.round(r.x)), y0 = Math.max(M, Math.round(r.y));
+    const x1 = Math.min(w - M - 1, Math.round(r.x + r.w)), y1 = Math.min(h - M - 1, Math.round(r.y + r.h));
+    const cand = [];
+    for (let y = y0; y <= y1; y += 3) for (let x = x0; x <= x1; x += 3) {
+      let a = 0, b = 0, c = 0;
+      for (let j = -4; j <= 4; j++) { const row = (y + j) * w; for (let i = -4; i <= 4; i++) { const p = row + x + i, gx = g[p + 1] - g[p - 1], gy = g[p + w] - g[p - w]; a += gx * gx; b += gy * gy; c += gx * gy; } }
+      cand.push([(a + b) / 2 - Math.sqrt(((a - b) / 2) ** 2 + c * c), x, y]);
+    }
+    cand.sort((p, q) => q[0] - p[0]);
+    const maxE = cand.length ? cand[0][0] : 0, N = 64;
+    const minD = Math.max(6, Math.sqrt(Math.max(1, (x1 - x0) * (y1 - y0)) / N) * 0.75);
+    const out = [];
+    for (const [e, x, y] of cand) {
+      if (e < maxE * 0.02 || e < 600) break;
+      if (out.every(p => (p.x - x) ** 2 + (p.y - y) ** 2 >= minD * minD)) { out.push({ x, y }); if (out.length >= N) break; }
+    }
+    for (const f of out) {
+      const P = new Float32Array(PS * PS); let s = 0;
+      for (let j = -PH; j <= PH; j++) for (let i = -PH; i <= PH; i++) { const v = g[(f.y + j) * w + f.x + i]; P[(j + PH) * PS + i + PH] = v; s += v; }
+      s /= PS * PS; for (let k = 0; k < P.length; k++) P[k] -= s;
+      f.P = P;
+    }
+    return out;
+  }
+
+  function patchCost(ref, dx, dy, step) {
+    const cx = WH + dx, cy = WH + dy, x0 = cx - PH, y0 = cy - PH, x1 = cx + PH + 1, y1 = cy + PH + 1, B1 = BS + 1;
+    const mean = (integ[y1 * B1 + x1] - integ[y0 * B1 + x1] - integ[y1 * B1 + x0] + integ[y0 * B1 + x0]) / (PS * PS);
+    let s = 0, n = 0;
+    for (let j = 0; j < PS; j += step) { const rb = (y0 + j) * BS + x0, rr = j * PS; for (let i = 0; i < PS; i += step) { s += Math.abs(buf[rb + i] - mean - ref[rr + i]); n++; } }
+    return s / n;
+  }
+  function measure(g, w, h, f, cs, sn, tx, ty, cx, cy) {
+    const px = f.x - cx, py = f.y - cy;
+    const qx = cx + cs * px - sn * py + tx, qy = cy + sn * px + cs * py + ty;
+    const ext = WH * Math.hypot(cs, sn) * 1.42 + 2;
+    if (qx - ext < 0 || qy - ext < 0 || qx + ext > w - 2 || qy + ext > h - 2) return null;
+    for (let j = -WH; j <= WH; j++) {
+      const bx = qx - sn * j, by = qy + cs * j, row = (j + WH) * BS + WH;
+      for (let i = -WH; i <= WH; i++) {
+        const x = bx + cs * i, y = by + sn * i, x0 = x | 0, y0 = y | 0, fx = x - x0, fy = y - y0, p = y0 * w + x0;
+        buf[row + i] = (g[p] * (1 - fx) + g[p + 1] * fx) * (1 - fy) + (g[p + w] * (1 - fx) + g[p + w + 1] * fx) * fy;
+      }
+    }
+    const B1 = BS + 1;
+    for (let y = 0; y < BS; y++) { let rs = 0; for (let x = 0; x < BS; x++) { rs += buf[y * BS + x]; integ[(y + 1) * B1 + x + 1] = integ[y * B1 + x + 1] + rs; } }
+    let best = Infinity, bx = 0, by = 0;
+    for (let dy = -SR; dy <= SR; dy += 2) for (let dx = -SR; dx <= SR; dx += 2) { const c = patchCost(f.P, dx, dy, 2); if (c < best) { best = c; bx = dx; by = dy; } }
+    const lim = SR + 2;
+    const get = (X, Y) => (Math.abs(X) <= lim && Math.abs(Y) <= lim) ? patchCost(f.P, X, Y, 1) : Infinity;
+    let fb = Infinity, fx = bx, fy = by;
+    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const c = get(bx + dx, by + dy); if (c < fb) { fb = c; fx = bx + dx; fy = by + dy; } }
+    const cl = get(fx - 1, fy), cr = get(fx + 1, fy), cu = get(fx, fy - 1), cd = get(fx, fy + 1);
+    const sub = (m, p) => { if (!isFinite(m) || !isFinite(p)) return 0; const d = m - 2 * fb + p; return d > 1e-6 ? clamp((m - p) / (2 * d), -0.5, 0.5) : 0; };
+    const ox = fx + sub(cl, cr), oy = fy + sub(cu, cd);
+    return { x: qx + cs * ox - sn * oy, y: qy + sn * ox + cs * oy, cost: fb };
+  }
+
+  function fitLS(P, Q, idx, rot) {
+    let mpx = 0, mpy = 0, mqx = 0, mqy = 0; const n = idx.length;
+    for (const j of idx) { mpx += P[j][0]; mpy += P[j][1]; mqx += Q[j][0]; mqy += Q[j][1]; }
+    mpx /= n; mpy /= n; mqx /= n; mqy /= n;
+    if (!rot) return { ar: 1, ai: 0, bx: mqx - mpx, by: mqy - mpy };
+    let nr = 0, ni = 0, den = 0;
+    for (const j of idx) { const ax = P[j][0] - mpx, ay = P[j][1] - mpy, bx = Q[j][0] - mqx, by = Q[j][1] - mqy; nr += ax * bx + ay * by; ni += ax * by - ay * bx; den += ax * ax + ay * ay; }
+    if (den < 1e-9) return { ar: 1, ai: 0, bx: mqx - mpx, by: mqy - mpy };
+    const ar = nr / den, ai = ni / den;
+    return { ar, ai, bx: mqx - (ar * mpx - ai * mpy), by: mqy - (ai * mpx + ar * mpy) };
+  }
+  const resid = (f, p, q) => { const x = f.ar * p[0] - f.ai * p[1] + f.bx - q[0], y = f.ai * p[0] + f.ar * p[1] + f.by - q[1]; return x * x + y * y; };
+  function robustFit(P, Q, rot) {
+    const n = P.length, thr2 = 1.5 * 1.5;
+    let seed = 987654321; const rnd = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+    let best = null, bestCnt = -1, bestErr = Infinity;
+    for (let it = 0; it < 100; it++) {
+      let f;
+      if (rot) {
+        const a = (rnd() * n) | 0, b = (rnd() * n) | 0;
+        if (a === b || (P[a][0] - P[b][0]) ** 2 + (P[a][1] - P[b][1]) ** 2 < 100) continue;
+        f = fitLS(P, Q, [a, b], true);
+      } else f = fitLS(P, Q, [(rnd() * n) | 0], false);
+      let cnt = 0, err = 0;
+      for (let j = 0; j < n; j++) { const r = resid(f, P[j], Q[j]); if (r < thr2) { cnt++; err += r; } }
+      if (cnt > bestCnt || (cnt === bestCnt && err < bestErr)) { best = f; bestCnt = cnt; bestErr = err; }
+    }
+    if (!best) return null;
+    const all = [...Array(n).keys()];
+    let inl = all.filter(j => resid(best, P[j], Q[j]) < thr2);
+    for (let r = 0; r < 2; r++) { if (inl.length < 3) return null; best = fitLS(P, Q, inl, rot); inl = all.filter(j => resid(best, P[j], Q[j]) < thr2); }
+    return { ...best, inliers: inl };
+  }
+  function down4(g, w, h) {
+    const W = w >> 2, H = h >> 2, o = new Float32Array(W * H);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let s = 0; for (let j = 0; j < 4; j++) { const r = (y * 4 + j) * w + x * 4; s += g[r] + g[r + 1] + g[r + 2] + g[r + 3]; } o[y * W + x] = s / 16; }
+    return { d: o, w: W, h: H };
+  }
+  function globalShift(a, b, r) {
+    const R = 10, W = a.w, H = a.h;
+    const x0 = Math.max(R, Math.floor(r.x / 4)), x1 = Math.min(W - R - 1, Math.ceil((r.x + r.w) / 4));
+    const y0 = Math.max(R, Math.floor(r.y / 4)), y1 = Math.min(H - R - 1, Math.ceil((r.y + r.h) / 4));
+    if (x1 - x0 < 4 || y1 - y0 < 4) return { x: 0, y: 0 };
+    let best = Infinity, bx = 0, by = 0;
+    for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
+      let s = 0, n = 0;
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { s += Math.abs(b.d[(y + dy) * W + x + dx] - a.d[y * W + x]); n++; }
+      if (s / n < best) { best = s / n; bx = dx; by = dy; }
+    }
+    return { x: bx * 4, y: by * 4 };
+  }
+
+  async function runTrack() {
+    stopPreview();
+    $('trackBtn').disabled = true; $('trackBox').hidden = false; setProg($('tprog'), 0);
+    const n = st.gray.length, w = st.aw, h = st.ah, cx = w / 2, cy = h / 2;
+    const r = { x: st.roi.x * w, y: st.roi.y * h, w: st.roi.w * w, h: st.roi.h * h };
+    const rot = $('rot').checked; st.rotUsed = rot;
+    const feats = pickFeatures(st.gray[0], w, h, r);
+    if (feats.length < 6) {
+      $('tstatus').textContent = 'Not enough detail in the box to track. Make the box bigger or move it onto something with edges or texture.';
+      $('trackBtn').disabled = false; return;
+    }
+    $('tstatus').textContent = `Tracking ${feats.length} detail points…`;
+    const A = { s: new Float64Array(n).fill(1), th: new Float64Array(n), tx: new Float64Array(n), ty: new Float64Array(n) };
+    const inl = new Array(n); inl[0] = Float32Array.from(feats.flatMap(f => [f.x, f.y]));
+    const P = feats.map(f => [f.x - cx, f.y - cy]);
+    let lost = 0;
+    const attempt = (g, pr) => {
+      const cs = pr.s * Math.cos(pr.th), sn = pr.s * Math.sin(pr.th);
+      const Q = [], Pp = [], C = [];
+      for (let k = 0; k < feats.length; k++) {
+        const m = measure(g, w, h, feats[k], cs, sn, pr.tx, pr.ty, cx, cy);
+        if (m) { Q.push([m.x - cx, m.y - cy]); Pp.push(P[k]); C.push(m.cost); }
+      }
+      if (Q.length < 5) return null;
+      const sorted = C.slice().sort((a, b) => a - b), med = sorted[sorted.length >> 1], lim = Math.max(med * 2.5, med + 12);
+      const Q2 = [], P2 = [];
+      for (let k = 0; k < Q.length; k++) if (C[k] <= lim) { Q2.push(Q[k]); P2.push(Pp[k]); }
+      if (Q2.length < 5) return null;
+      const fit = robustFit(P2, Q2, rot);
+      if (!fit || fit.inliers.length < Math.max(5, 0.3 * Q2.length)) return null;
+      const s = Math.hypot(fit.ar, fit.ai), th = Math.atan2(fit.ai, fit.ar);
+      if (s < 0.8 || s > 1.25 || Math.abs(th) > 0.4) return null;
+      return { s, th, tx: fit.bx, ty: fit.by, pts: fit.inliers.map(j => Q2[j]) };
+    };
+    for (let i = 1; i < n; i++) {
+      const g = st.gray[i], a = i - 1, b = Math.max(0, i - 2);
+      const prev = { s: A.s[a], th: A.th[a], tx: A.tx[a], ty: A.ty[a] };
+      const pred = { s: A.s[a] * Math.sqrt(A.s[a] / A.s[b]), th: A.th[a] + (A.th[a] - A.th[b]) * 0.5, tx: A.tx[a] + (A.tx[a] - A.tx[b]) * 0.5, ty: A.ty[a] + (A.ty[a] - A.ty[b]) * 0.5 };
+      let res = attempt(g, pred) || attempt(g, prev);
+      if (!res) { const sh = globalShift(down4(st.gray[a], w, h), down4(g, w, h), r); res = attempt(g, { ...prev, tx: prev.tx + sh.x, ty: prev.ty + sh.y }); }
+      if (res) {
+        A.s[i] = res.s; A.th[i] = res.th; A.tx[i] = res.tx; A.ty[i] = res.ty;
+        const f = new Float32Array(res.pts.length * 2); res.pts.forEach((q, k) => { f[2 * k] = q[0] + cx; f[2 * k + 1] = q[1] + cy; }); inl[i] = f;
+      } else { A.s[i] = prev.s; A.th[i] = prev.th; A.tx[i] = prev.tx; A.ty[i] = prev.ty; inl[i] = new Float32Array(0); lost++; }
+      if (i % 6 === 0) { setProg($('tprog'), i / n); await tick(); }
+    }
+    setProg($('tprog'), 1);
+    st.A = A; st.inl = inl; st.lost = lost;
+    $('tstatus').textContent = lost ? `Tracked ${n - lost} of ${n} frames. ${lost} frames lost the area and reuse the frame before.` : `Tracked all ${n} frames.`;
+    $('trackBtn').disabled = false; $('trackBtn').textContent = 'Track again';
+    $('p-tune').hidden = false; $('p-cube').hidden = false; $('p-export').hidden = false;
+    plan();
+    startPreview();
+    $('p-tune').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // ---------- path planning ----------
+  const rectCorners = () => [[0, 0], [st.vw, 0], [st.vw, st.vh], [0, st.vh]];
+  function invM(mm, x, y) {
+    const Cx = st.vw / 2, Cy = st.vh / 2, ca = Math.cos(mm.a), sa = Math.sin(mm.a), dx = x - Cx - mm.x, dy = y - Cy - mm.y;
+    return [Cx + (ca * dx + sa * dy) / mm.m, Cy + (-sa * dx + ca * dy) / mm.m];
+  }
+  function applySim(ls, a, tx, ty, x, y) {
+    const Cx = st.vw / 2, Cy = st.vh / 2, s = Math.exp(ls), ca = Math.cos(a), sa = Math.sin(a), dx = x - Cx, dy = y - Cy;
+    return [Cx + s * (ca * dx - sa * dy) + tx, Cy + s * (sa * dx + ca * dy) + ty];
+  }
+  function gaussCircular(a, sigma) {
+    const n = a.length, m = n - 1;
+    if (m < 2 || sigma < 0.5) return a.slice();
+    const r = Math.min(Math.ceil(sigma * 3), m * 3), k = [];
+    for (let j = -r; j <= r; j++) k.push(Math.exp(-(j * j) / (2 * sigma * sigma)));
+    const ks = k.reduce((s, v) => s + v, 0), o = new Array(n);
+    for (let i = 0; i < m; i++) { let s = 0; for (let j = -r; j <= r; j++) s += a[((i + j) % m + m) % m] * k[j + r]; o[i] = s / ks; }
+    o[m] = o[0];
+    return o;
+  }
+  function clipHalf(poly, nx, ny, c) {
+    const out = [];
+    for (let i = 0; i < poly.length; i++) {
+      const A = poly[i], B = poly[(i + 1) % poly.length];
+      const da = nx * A[0] + ny * A[1] - c, db = nx * B[0] + ny * B[1] - c;
+      if (da <= 0) out.push(A);
+      if ((da < 0 && db > 0) || (da > 0 && db < 0)) { const f = da / (da - db); out.push([A[0] + (B[0] - A[0]) * f, A[1] + (B[1] - A[1]) * f]); }
+    }
+    return out;
+  }
+  function largestRect(quads, aspect) {
+    let poly = quads[0].slice();
+    for (const q of quads) for (let e = 0; e < 4; e++) {
+      const a = q[e], b = q[(e + 1) % 4]; let nx = b[1] - a[1], ny = -(b[0] - a[0]); const L = Math.hypot(nx, ny); if (L < 1e-9) continue;
+      nx /= L; ny /= L; poly = clipHalf(poly, nx, ny, nx * a[0] + ny * a[1] - 2);
+      if (poly.length < 3) return null;
+    }
+    const cons = [];
+    for (let i = 0; i < poly.length; i++) {
+      const a = poly[i], b = poly[(i + 1) % poly.length]; let nx = b[1] - a[1], ny = -(b[0] - a[0]); const L = Math.hypot(nx, ny); if (L < 1e-6) continue;
+      nx /= L; ny /= L; cons.push({ nx, ny, c: nx * a[0] + ny * a[1] });
+    }
+    const xs = poly.map(p => p[0]), ys = poly.map(p => p[1]);
+    const bb = { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
+    const feasible = (r, hh) => {
+      let R = [[bb.x0, bb.y0], [bb.x1, bb.y0], [bb.x1, bb.y1], [bb.x0, bb.y1]];
+      for (const k of cons) { R = clipHalf(R, k.nx, k.ny, k.c - (Math.abs(k.nx) * r + Math.abs(k.ny)) * hh); if (!R.length) return null; }
+      return R;
+    };
+    const solve = r => {
+      let lo = 0, hi = (bb.y1 - bb.y0) / 2 + 1, reg = feasible(r, 0);
+      for (let it = 0; it < 32; it++) { const mid = (lo + hi) / 2, f = feasible(r, mid); if (f) { lo = mid; reg = f; } else hi = mid; }
+      return { r, hh: lo, reg };
+    };
+    let best;
+    if (aspect) best = solve(aspect);
+    else {
+      const r0 = (bb.x1 - bb.x0) / Math.max(1, bb.y1 - bb.y0);
+      for (let k = 0; k <= 40; k++) { const r = r0 * Math.pow(6.25, k / 40) / 2.5, s = solve(r); if (!best || s.r * s.hh * s.hh > best.r * best.hh * best.hh) best = s; }
+    }
+    if (!best.reg || best.hh < 4) return null;
+    const cx = best.reg.reduce((s, p) => s + p[0], 0) / best.reg.length, cy = best.reg.reduce((s, p) => s + p[1], 0) / best.reg.length;
+    const w = Math.floor(best.r * best.hh) * 2, h = Math.floor(best.hh) * 2;
+    return { x: cx - w / 2, y: cy - h / 2, w, h, poly };
+  }
+
+  function plan() {
+    const n = st.times.length; if (!st.A || n < 3) return;
+    const kx = st.vw / st.aw, ky = st.vh / st.ah, A = st.A;
+    const P = [Array.from(A.s, Math.log), Array.from(A.th), Array.from(A.tx, v => v * kx), Array.from(A.ty, v => v * ky)];
+    const mode = val('mode'), sig = +$('smooth').value;
+    const fps = (n - 1) / Math.max(1e-3, st.times[n - 1] - st.times[0]);
+    const S = P.map(p => {
+      if (mode === 'lock') { const m = p.reduce((s, v) => s + v, 0) / n; return p.map(() => m); }
+      const D = p[n - 1] - p[0], closed = p.map((v, i) => v - D * i / (n - 1));
+      return mode === 'ends' ? closed : gaussCircular(closed, sig * fps);
+    });
+    const M = { m: new Float64Array(n), a: new Float64Array(n), x: new Float64Array(n), y: new Float64Array(n) }, quads = [];
+    for (let i = 0; i < n; i++) {
+      const m = Math.exp(P[0][i] - S[0][i]), a = P[1][i] - S[1][i], ca = Math.cos(a), sa = Math.sin(a);
+      M.m[i] = m; M.a[i] = a;
+      M.x[i] = P[2][i] - m * (ca * S[2][i] - sa * S[3][i]);
+      M.y[i] = P[3][i] - m * (sa * S[2][i] + ca * S[3][i]);
+      const mm = { m, a, x: M.x[i], y: M.y[i] };
+      quads.push(rectCorners().map(([x, y]) => invM(mm, x, y)));
+    }
+    const keep = val('shape') === 'keep';
+    let crop = largestRect(quads, keep ? st.vw / st.vh : null);
+    const warnEl = $('warn');
+    if (!crop) {
+      crop = { x: st.vw * 0.4, y: st.vh * 0.4, w: Math.floor(st.vw * 0.1) * 2, h: Math.floor(st.vh * 0.1) * 2, poly: [] };
+      warnEl.hidden = false; warnEl.textContent = 'The camera moved so much that no area stays in view the whole time. Try Smooth or Ends only, or a different tracked area.';
+    } else warnEl.hidden = true;
+    let outW = crop.w, outH = crop.h;
+    if ($('fill').checked) {
+      if (keep) { outW = st.vw; outH = st.vh; }
+      else { const sc = Math.max(st.vw, st.vh) / Math.max(crop.w, crop.h); outW = Math.round(crop.w * sc / 2) * 2; outH = Math.round(crop.h * sc / 2) * 2; }
+    }
+    outW = Math.max(2, Math.floor(outW / 2) * 2); outH = Math.max(2, Math.floor(outH / 2) * 2);
+    let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
+    for (const q of quads) for (const [x, y] of q) { bx0 = Math.min(bx0, x); by0 = Math.min(by0, y); bx1 = Math.max(bx1, x); by1 = Math.max(by1, y); }
+    const mg = 0.03 * Math.max(st.vw, st.vh);
+    st.plan = { P, S, M, quads, crop, outW, outH, bbox: { x: bx0 - mg, y: by0 - mg, w: bx1 - bx0 + 2 * mg, h: by1 - by0 + 2 * mg } };
+    const kept = crop.w * crop.h / (st.vw * st.vh);
+    $('s-kept').textContent = `${Math.round(kept * 100)}%`;
+    $('s-out').textContent = `${outW}×${outH}`;
+    const tilt = st.rotUsed ? Math.max(...P[1].map(Math.abs)) * 180 / Math.PI : 0;
+    $('s-tilt').textContent = st.rotUsed ? `${tilt.toFixed(1)}°` : 'off';
+    $('s-track').textContent = `${n - st.lost}/${n}`;
+    if (warnEl.hidden && kept < 0.45) { warnEl.hidden = false; warnEl.textContent = `Only ${Math.round(kept * 100)}% of the frame survives the crop. Try Smooth or Ends only, Largest area, or trim the clip to its steadier part.`; }
+    setupPreview();
+    drawPlot();
+    drawCube(video.currentTime);
+    if (video.paused) drawPreview(video.currentTime);
+  }
+
+  function locate(t) {
+    const ts = st.times, n = ts.length;
+    if (t <= ts[0]) return [0, 0, 0];
+    if (t >= ts[n - 1]) return [n - 1, n - 1, 0];
+    let a = 0, b = n - 1;
+    while (b - a > 1) { const m = (a + b) >> 1; if (ts[m] <= t) a = m; else b = m; }
+    return [a, b, (t - ts[a]) / (ts[b] - ts[a])];
+  }
+  function interpM(t) { const [a, b, f] = locate(t), M = st.plan.M, L = arr => arr[a] + (arr[b] - arr[a]) * f; return { m: L(M.m), a: L(M.a), x: L(M.x), y: L(M.y) }; }
+  function interpS(t) { const [a, b, f] = locate(t), S = st.plan.S, L = arr => arr[a] + (arr[b] - arr[a]) * f; return S.map(L); }
+
+  // ---------- drawing a stabilised frame ----------
+  function setXf(ctx, mm, o, z) {
+    const Cx = st.vw / 2, Cy = st.vh / 2, k = z / mm.m, ca = Math.cos(mm.a), sa = Math.sin(mm.a);
+    const a = k * ca, b = -k * sa, c = k * sa, d = k * ca, ux = Cx + mm.x, uy = Cy + mm.y;
+    ctx.setTransform(a, b, c, d, z * (Cx - o.x) - (a * ux + c * uy), z * (Cy - o.y) - (b * ux + d * uy));
+  }
+  const pv = $('pv'), pvCtx = pv.getContext('2d');
+  let pvView = null;
+  function setupPreview() {
+    const p = st.plan; if (!p) return;
+    const box = $('showCut').checked ? p.bbox : p.crop;
+    const z = Math.min(1, 1280 / Math.max(box.w, box.h));
+    pv.width = Math.max(2, Math.round(box.w * z)); pv.height = Math.max(2, Math.round(box.h * z));
+    pvView = { o: { x: box.x, y: box.y }, z, cut: $('showCut').checked };
+  }
+  function drawPreview(t) {
+    const p = st.plan; if (!p || !pvView || video.readyState < 2) return;
+    const ctx = pvCtx, { o, z } = pvView, W = pv.width, H = pv.height, mm = interpM(t);
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = colors.stage; ctx.fillRect(0, 0, W, H);
+    setXf(ctx, mm, o, z); ctx.drawImage(video, 0, 0); ctx.setTransform(1, 0, 0, 1, 0, 0);
+    if (!pvView.cut) return;
+    const V = ([x, y]) => [(x - o.x) * z, (y - o.y) * z];
+    const lw = Math.max(1.5, W / 500);
+    const path = pts => { ctx.beginPath(); pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); };
+    const c = p.crop;
+    ctx.fillStyle = 'rgba(0,0,0,0.58)'; ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.rect((c.x - o.x) * z, (c.y - o.y) * z, c.w * z, c.h * z); ctx.fill('evenodd');
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = lw; ctx.setLineDash([lw * 4, lw * 3]);
+    path(rectCorners().map(([x, y]) => V(invM(mm, x, y)))); ctx.stroke();
+    const s = interpS(t), r = st.roi;
+    ctx.strokeStyle = colors.accent2; ctx.setLineDash([lw * 3, lw * 2]);
+    path([[r.x, r.y], [r.x + r.w, r.y], [r.x + r.w, r.y + r.h], [r.x, r.y + r.h]].map(([x, y]) => V(applySim(s[0], s[1], s[2], s[3], x * st.vw, y * st.vh)))); ctx.stroke();
+    ctx.setLineDash([]); ctx.strokeStyle = colors.accent; ctx.lineWidth = lw * 1.4;
+    ctx.strokeRect((c.x - o.x) * z, (c.y - o.y) * z, c.w * z, c.h * z);
+    const [ia, ib, f] = locate(t), pts = st.inl[f < 0.5 ? ia : ib];
+    if (pts) {
+      const kx = st.vw / st.aw, ky = st.vh / st.ah; ctx.fillStyle = colors.accent2;
+      for (let k = 0; k < pts.length; k += 2) { const [x, y] = V(invM(mm, (pts[k] + 0.5) * kx, (pts[k + 1] + 0.5) * ky)); ctx.beginPath(); ctx.arc(x, y, lw * 1.6, 0, 6.2832); ctx.fill(); }
+    }
+  }
+
+  // ---------- preview playback ----------
+  function speed() { return +val('speed'); }
+  function setPlayIcon(playing) { $('playIcon').setAttribute('d', playing ? 'M4 2h3v12H4zM9 2h3v12H9z' : 'M4 2l10 6-10 6z'); $('playBtn').setAttribute('aria-label', playing ? 'Pause' : 'Play'); }
+  function startPreview() {
+    phase = 'preview';
+    video.loop = true; video.muted = true; video.playbackRate = speed();
+    video.play().then(() => setPlayIcon(true)).catch(() => { setPlayIcon(false); drawPreview(video.currentTime); });
+  }
+  function stopPreview() { if (phase === 'preview') { video.pause(); setPlayIcon(false); } }
+  function timeUI(t) { const d = st.dur || 1; $('time').value = Math.round(1000 * t / d); $('tlabel').textContent = `${t.toFixed(1)} / ${d.toFixed(1)} s`; }
+  $('playBtn').addEventListener('click', () => { if (phase !== 'preview') return; if (video.paused) startPreview(); else stopPreview(); });
+  $('time').addEventListener('input', () => { if (phase !== 'preview') return; stopPreview(); video.currentTime = +$('time').value / 1000 * st.dur; });
+
+  // ---------- plot ----------
+  function drawPlot() {
+    const p = st.plan; if (!p) return;
+    const cv = $('plot'), dpr = window.devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight;
+    cv.width = W * dpr; cv.height = H * dpr;
+    const g = cv.getContext('2d'); g.scale(dpr, dpr);
+    const n = p.P[0].length, X = i => 44 + (W - 48) * i / (n - 1);
+    const panels = st.rotUsed ? [{ y0: 4, y1: H * 0.62, keys: [2, 3], unit: 'px', f: v => v }, { y0: H * 0.68, y1: H - 4, keys: [1], unit: '°', f: v => v * 180 / Math.PI }] : [{ y0: 4, y1: H - 4, keys: [2, 3], unit: 'px', f: v => v }];
+    g.font = '10px ' + getComputedStyle(document.body).fontFamily; g.textBaseline = 'middle';
+    for (const pn of panels) {
+      const vals = []; for (const k of pn.keys) { vals.push(...p.P[k].map(pn.f), ...p.S[k].map(pn.f)); }
+      let lo = Math.min(...vals), hi = Math.max(...vals); if (hi - lo < (pn.unit === 'px' ? 4 : 0.2)) { const c = (hi + lo) / 2, d = pn.unit === 'px' ? 2 : 0.1; lo = c - d; hi = c + d; }
+      const Y = v => pn.y1 - (pn.y1 - pn.y0) * (v - lo) / (hi - lo);
+      g.strokeStyle = colors.line; g.lineWidth = 1; g.setLineDash([]);
+      g.beginPath(); g.moveTo(44, pn.y0); g.lineTo(44, pn.y1); g.lineTo(W - 4, pn.y1); g.stroke();
+      g.fillStyle = colors.muted; g.textAlign = 'right';
+      g.fillText(`${Math.round(hi * 10) / 10}${pn.unit}`, 40, pn.y0 + 4); g.fillText(`${Math.round(lo * 10) / 10}${pn.unit}`, 40, pn.y1 - 4);
+      const line = (arr, color, dash, lw) => { g.strokeStyle = color; g.setLineDash(dash); g.lineWidth = lw; g.beginPath(); arr.forEach((v, i) => i ? g.lineTo(X(i), Y(pn.f(v))) : g.moveTo(X(i), Y(pn.f(v)))); g.stroke(); };
+      pn.keys.forEach((k, j) => { line(p.P[k], colors.muted, j ? [4, 3] : [], 1.2); line(p.S[k], colors.accent, j ? [4, 3] : [], 2); });
+    }
+    g.setLineDash([]);
+  }
+
+  // ---------- space-time cube ----------
+  const cube = { yaw: -0.85, pitch: 0.38, last: 0, visible: false };
+  const cubeCv = $('cube');
+  function thumbCanvas(i) {
+    let c = st.thumbCv.get(i);
+    if (!c) { c = document.createElement('canvas'); c.width = st.tw; c.height = st.th; c.getContext('2d').putImageData(st.thumbs[i], 0, 0); st.thumbCv.set(i, c); }
+    return c;
+  }
+  function drawCube(t) {
+    const p = st.plan; if (!p || $('p-cube').hidden) return;
+    const dpr = window.devicePixelRatio || 1, W = Math.round(cubeCv.clientWidth * dpr), H = Math.round(cubeCv.clientHeight * dpr);
+    if (!W || !H) return;
+    if (cubeCv.width !== W || cubeCv.height !== H) { cubeCv.width = W; cubeCv.height = H; }
+    const ctx = cubeCv.getContext('2d');
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, W, H);
+    const n = st.times.length, vw = st.vw, vh = st.vh, T0 = st.times[0], T1 = st.times[n - 1] || 1;
+    const after = val('cubeMode') === 'after';
+        const L = 1.7 * Math.max(vw, vh);
+    const cyw = Math.cos(cube.yaw), syw = Math.sin(cube.yaw), cp = Math.cos(cube.pitch), sp = Math.sin(cube.pitch);
+    const bx = after ? p.bbox : { x: 0, y: 0, w: vw, h: vh };
+    const raw = (vx, vy, tt) => {
+      const X = vx - vw / 2, Y = vy - vh / 2, Z = ((tt - T0) / (T1 - T0) - 0.5) * L;
+      const x1 = X * cyw + Z * syw, z1 = -X * syw + Z * cyw;
+      return [x1, Y * cp - z1 * sp, Y * sp + z1 * cp];
+    };
+    let mnx = Infinity, mxx = -Infinity, mny = Infinity, mxy = -Infinity;
+    for (const x of [bx.x, bx.x + bx.w]) for (const y of [bx.y, bx.y + bx.h]) for (const tt of [T0, T1]) { const q = raw(x, y, tt); mnx = Math.min(mnx, q[0]); mxx = Math.max(mxx, q[0]); mny = Math.min(mny, q[1]); mxy = Math.max(mxy, q[1]); }
+    const sc = Math.min(W * 0.92 / (mxx - mnx), H * 0.86 / (mxy - mny)), ox = W / 2 - sc * (mnx + mxx) / 2, oy = H / 2 - sc * (mny + mxy) / 2;
+    const P3 = (vx, vy, tt) => { const q = raw(vx, vy, tt); return [ox + q[0] * sc, oy + q[1] * sc, q[2]]; };
+    const corners = i => after ? p.quads[i] : rectCorners();
+    const lw = dpr;
+    // corner trails
+    ctx.strokeStyle = colors.muted; ctx.lineWidth = lw; ctx.globalAlpha = 0.6;
+    for (let c = 0; c < 4; c++) { ctx.beginPath(); for (let i = 0; i < n; i++) { const [x, y] = corners(i)[c], q = P3(x, y, st.times[i]); i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); } ctx.stroke(); }
+    ctx.globalAlpha = 0.22;
+    const stepO = Math.max(1, Math.ceil(n / 24));
+    for (let i = 0; i < n; i += stepO) { ctx.beginPath(); corners(i).forEach(([x, y], k) => { const q = P3(x, y, st.times[i]); k ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); }); ctx.closePath(); ctx.stroke(); }
+    ctx.globalAlpha = 1;
+    // slices
+    const [ia, ib, f] = locate(t), cur = f < 0.5 ? ia : ib;
+    const K = 6, set = new Set([cur]); for (let k = 0; k < K; k++) set.add(Math.round(k * (n - 1) / (K - 1)));
+    const sl = [...set].map(i => { const q = P3(vw / 2, vh / 2, st.times[i]); return { i, z: q[2] }; }).sort((a, b) => b.z - a.z);
+    for (const { i } of sl) {
+      const mm = { m: p.M.m[i], a: p.M.a[i], x: p.M.x[i], y: p.M.y[i] };
+      const map = (x, y) => after ? invM(mm, x, y) : [x, y];
+      const tt = st.times[i];
+      const q0 = P3(...map(0, 0), tt), q1 = P3(...map(vw, 0), tt), q2 = P3(...map(0, vh), tt);
+      ctx.globalAlpha = i === cur ? 0.96 : 0.5;
+      ctx.setTransform((q1[0] - q0[0]) / st.tw, (q1[1] - q0[1]) / st.tw, (q2[0] - q0[0]) / st.th, (q2[1] - q0[1]) / st.th, q0[0], q0[1]);
+      ctx.drawImage(thumbCanvas(i), 0, 0);
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1;
+      if (i === cur) {
+        ctx.strokeStyle = colors.ink; ctx.lineWidth = lw * 1.5; ctx.beginPath();
+        corners(i).forEach(([x, y], k) => { const q = P3(x, y, tt); k ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); }); ctx.closePath(); ctx.stroke();
+      }
+    }
+    // crop tube
+    if (after) {
+      const c = p.crop, cc = [[c.x, c.y], [c.x + c.w, c.y], [c.x + c.w, c.y + c.h], [c.x, c.y + c.h]];
+      ctx.strokeStyle = colors.accent; ctx.lineWidth = lw * 2;
+      for (const tt of [T0, T1, st.times[cur]]) { ctx.globalAlpha = tt === st.times[cur] ? 1 : 0.85; ctx.beginPath(); cc.forEach(([x, y], k) => { const q = P3(x, y, tt); k ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); }); ctx.closePath(); ctx.stroke(); }
+      ctx.globalAlpha = 0.85;
+      for (const [x, y] of cc) { const a = P3(x, y, T0), b = P3(x, y, T1); ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); }
+      ctx.globalAlpha = 1;
+    }
+    // tracked-area path
+    const r = st.roi, rc = [(r.x + r.w / 2) * vw, (r.y + r.h / 2) * vh];
+    ctx.strokeStyle = colors.accent2; ctx.lineWidth = lw * 2; ctx.beginPath();
+    for (let i = 0; i < n; i++) {
+      const src = after ? p.S : p.P, pt = applySim(src[0][i], src[1][i], src[2][i], src[3][i], rc[0], rc[1]), q = P3(pt[0], pt[1], st.times[i]);
+      i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]);
+    }
+    ctx.stroke();
+    // labels
+    ctx.fillStyle = colors.muted; ctx.font = `${11 * dpr}px ` + getComputedStyle(document.body).fontFamily; ctx.textAlign = 'center';
+    const ls = P3(vw / 2, vh * (after ? 1.08 : 1.1), T0), le = P3(vw / 2, vh * (after ? 1.08 : 1.1), T1);
+    ctx.fillText('start', ls[0], ls[1]); ctx.fillText('end', le[0], le[1]);
+    cube.last = performance.now();
+  }
+  function cubeTick(t) { if (cube.visible && performance.now() - cube.last > 90) drawCube(t); }
+  try { new IntersectionObserver(es => { cube.visible = es[0].isIntersecting; }).observe(cubeCv); } catch (e) { cube.visible = true; }
+  let cdrag = null;
+  cubeCv.addEventListener('pointerdown', e => { cubeCv.setPointerCapture(e.pointerId); cdrag = { x: e.clientX, y: e.clientY, yaw: cube.yaw, pitch: cube.pitch }; cubeCv.style.cursor = 'grabbing'; });
+  cubeCv.addEventListener('pointermove', e => {
+    if (!cdrag) return;
+    cube.yaw = cdrag.yaw + (e.clientX - cdrag.x) * 0.01;
+    cube.pitch = clamp(cdrag.pitch + (e.clientY - cdrag.y) * 0.01, -1.45, 1.45);
+    drawCube(video.currentTime);
+  });
+  const endC = () => { cdrag = null; cubeCv.style.cursor = ''; };
+  cubeCv.addEventListener('pointerup', endC); cubeCv.addEventListener('pointercancel', endC);
+  document.querySelectorAll('input[name=cubeMode]').forEach(r => r.addEventListener('change', () => drawCube(video.currentTime)));
+
+  function redrawStatic() { drawRoi(); if (st.plan) { drawPlot(); drawCube(video.currentTime); if (video.paused) drawPreview(video.currentTime); } }
+  window.addEventListener('resize', () => { if (st.plan) { drawPlot(); drawCube(video.currentTime); } });
+
+  // ---------- render ----------
+  const out = $('out'), octx = out.getContext('2d');
+  function pickMime() {
+    const list = [['video/mp4;codecs=avc1.640028,mp4a.40.2', 'mp4'], ['video/mp4', 'mp4'], ['video/webm;codecs=vp9,opus', 'webm'], ['video/webm', 'webm']];
+    for (const [m, e] of list) if (window.MediaRecorder && MediaRecorder.isTypeSupported(m)) return [m, e];
+    return [null, null];
+  }
+  function render() {
+    const [mime, ext] = pickMime();
+    if (!mime || !out.captureStream) { $('outTitle').textContent = 'This browser cannot record video. Try Safari on iOS 15 or later, or Chrome.'; return; }
+    const p = st.plan, sp = speed(), keep = $('keepSound').checked;
+    out.width = p.outW; out.height = p.outH;
+    const z = p.outW / p.crop.w, o = { x: p.crop.x, y: p.crop.y };
+    if (keep) {
+      try {
+        if (!audio) { const ctx = new (window.AudioContext || window.webkitAudioContext)(); const node = ctx.createMediaElementSource(video); const dest = ctx.createMediaStreamDestination(); node.connect(dest); audio = { ctx, dest }; }
+        audio.ctx.resume();
+      } catch (e) { audio = null; }
+    }
+    const draw = t => { octx.setTransform(1, 0, 0, 1, 0, 0); octx.fillStyle = '#000'; octx.fillRect(0, 0, out.width, out.height); setXf(octx, interpM(t), o, z); octx.drawImage(video, 0, 0); };
+    draw(0);
+    const tracks = [...out.captureStream().getVideoTracks()];
+    if (keep && audio) tracks.push(...audio.dest.stream.getAudioTracks());
+    const fps = Math.min(60, (st.times.length / st.dur) * sp);
+    const bps = Math.round(Math.min(40e6, Math.max(4e6, out.width * out.height * Math.max(30, fps) * 0.2)));
+    const rec = new MediaRecorder(new MediaStream(tracks), { mimeType: mime, videoBitsPerSecond: bps });
+    const chunks = [];
+    rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+    rec.onstop = () => {
+      renderHook = null;
+      st.blob = new Blob(chunks, { type: mime.split(';')[0] }); st.ext = ext;
+      const r = $('result'); if (r.src) URL.revokeObjectURL(r.src); r.src = URL.createObjectURL(st.blob); $('resultStage').hidden = false; r.play().catch(() => {});
+      $('outTitle').textContent = 'Your loop'; $('rbarWrap').hidden = true; $('saveBtn').hidden = false;
+      $('renderBtn').disabled = false; $('renderBtn').textContent = 'Make it again';
+      try { wake && wake.release(); } catch (e) {}
+      startPreview();
+    };
+    video.pause();
+    phase = 'render';
+    $('renderBtn').disabled = true; $('rbarWrap').hidden = false; setProg($('rprog'), 0); $('saveBtn').hidden = true; $('saveMsg').textContent = '';
+    $('outTitle').textContent = 'Rendering…'; setPlayIcon(false);
+    try { navigator.wakeLock && navigator.wakeLock.request('screen').then(w => wake = w).catch(() => {}); } catch (e) {}
+    renderHook = t => { draw(t); setProg($('rprog'), t / st.dur); };
+    video.addEventListener('ended', () => { draw(st.dur); setTimeout(() => rec.stop(), 250); }, { once: true });
+    video.loop = false; video.playbackRate = sp; video.muted = !(keep && audio);
+    video.currentTime = 0;
+    rec.start(500);
+    video.play().catch(() => { rec.onstop = null; try { rec.stop(); } catch (e) {} renderHook = null; $('outTitle').textContent = 'Playback was blocked. Tap Make loop video again.'; $('renderBtn').disabled = false; $('rbarWrap').hidden = true; phase = 'preview'; });
+  }
+
+  // ---------- saving ----------
+  let downloads = null;
+  (async () => { try { downloads = window.claude ? await window.claude.use('downloads') : null; } catch (e) { downloads = null; } })();
+  $('saveBtn').addEventListener('click', async () => {
+    const msg = $('saveMsg'); if (!st.blob) return;
+    const sp = speed(), tag = sp === 1 ? '' : `-${String(sp).replace('.', '_')}x`, filename = `${st.name}-loop${tag}.${st.ext}`;
+    if (!downloads) {
+      // Plain web page (e.g. GitHub Pages): share sheet on phones, normal download elsewhere.
+      try {
+        const file = new File([st.blob], filename, { type: st.blob.type });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file] }); msg.textContent = 'Choose Save Video in the share sheet to put it in Photos.'; return; }
+      } catch (e) { if (e && e.name === 'AbortError') { msg.textContent = 'Save cancelled.'; return; } }
+      const a = document.createElement('a'); a.href = URL.createObjectURL(st.blob); a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+      msg.textContent = 'Download started.'; return;
+    }
+    try {
+      await downloads.save({ filename, data: st.blob });
+      msg.textContent = 'Saved. On iPhone, choose Save Video in the share sheet to put it in Photos.';
+    } catch (e) {
+      msg.textContent = e && e.code === 'declined' ? 'Save cancelled.' : e && e.code === 'rate_limited' ? 'A save prompt is already open.' : 'Could not save the file here.';
+    }
+  });
+
+  // ---------- wiring ----------
+  $('file').addEventListener('change', async e => {
+    const f = e.target.files && e.target.files[0]; if (!f) return;
+    phase = 'idle'; try { video.pause(); } catch (err) {}
+    st.name = (f.name || 'clip').replace(/\.[^.]+$/, '').replace(/[^\w\- ]+/g, '').slice(0, 60) || 'clip';
+    st.plan = null; st.A = null; st.blob = null;
+    for (const id of ['p-roi', 'p-tune', 'p-cube', 'p-export', 'trackBox', 'resultStage', 'saveBtn']) $(id).hidden = true;
+    $('trackBtn').textContent = 'Track this area'; $('renderBtn').textContent = 'Make loop video'; $('outTitle').textContent = 'Export';
+    $('analysis').hidden = false; setProg($('prog'), 0);
+    $('status').textContent = 'Loading video…';
+    if (video.src) URL.revokeObjectURL(video.src);
+    video.muted = true; video.defaultMuted = true; video.loop = false; video.src = URL.createObjectURL(f);
+    try { video.load(); } catch (err) {}
+    const myGen = ++gen;
+    let r = video.readyState >= 1 ? true : await waitFor(video, ['loadedmetadata'], 10000);
+    if (myGen !== gen) return;
+    if (r === 'error') { $('status').textContent = 'This video format could not be opened here. Try exporting it as an H.264 MP4.'; return; }
+    // iPhone Safari only decodes a frame once playback has started, so start and pause it.
+    if (video.readyState < 2) {
+      try { await video.play(); video.pause(); } catch (err) {}
+      if (video.readyState < 2) await waitFor(video, ['loadeddata', 'canplay'], 5000);
+    }
+    if (myGen !== gen) return;
+    if (video.readyState < 2 || !video.videoWidth || !isFinite(video.duration)) {
+      askTap('Tap to load video', 'The browser is waiting for a tap before it will open the video.', async () => {
+        $('startBtn').hidden = true; $('status').textContent = 'Loading video…';
+        try { await video.play(); video.pause(); } catch (err) {}
+        if (video.readyState < 2) await waitFor(video, ['loadeddata', 'canplay'], 6000);
+        if (video.readyState < 2 || !video.videoWidth) { $('status').textContent = 'This browser could not open the video. Try opening this page in Safari or Chrome, or export the clip as an H.264 MP4.'; return; }
+        afterLoad(myGen);
+      });
+      return;
+    }
+    afterLoad(myGen);
+  });
+  function afterLoad(myGen) {
+    if (myGen !== gen) return;
+    st.vw = video.videoWidth; st.vh = video.videoHeight;
+    const s = RES / Math.max(st.vw, st.vh); st.aw = Math.round(st.vw * s); st.ah = Math.round(st.vh * s);
+    const ts = THUMB / Math.max(st.vw, st.vh); st.tw = Math.max(2, Math.round(st.vw * ts)); st.th = Math.max(2, Math.round(st.vh * ts));
+    $('ana').width = st.aw; $('ana').height = st.ah; $('thumbCv').width = st.tw; $('thumbCv').height = st.th;
+    st.roi = { x: 0.08, y: 0.08, w: 0.84, h: 0.84 };
+    startFrameLoop(gen);
+    readFrames();
+  }
+  $('startBtn').addEventListener('click', () => {
+    // A play() inside the tap unlocks the video element for later script-driven playback on iPhone.
+    try { video.muted = true; const pr = video.play(); if (pr) pr.catch(() => {}); } catch (e) {}
+    const fn = tapAction; $('startBtn').hidden = true; fn && fn();
+  });
+  $('trackBtn').addEventListener('click', runTrack);
+  const replan = () => { if (st.A) plan(); };
+  document.querySelectorAll('input[name=mode]').forEach(r => r.addEventListener('change', () => { $('smoothRow').hidden = val('mode') !== 'smooth'; replan(); }));
+  document.querySelectorAll('input[name=shape]').forEach(r => r.addEventListener('change', replan));
+  document.querySelectorAll('input[name=speed]').forEach(r => r.addEventListener('change', () => { if (phase === 'preview') video.playbackRate = speed(); }));
+  $('smooth').addEventListener('input', () => { $('smoothOut').textContent = (+$('smooth').value).toFixed(2) + ' s'; replan(); });
+  $('fill').addEventListener('change', replan);
+  $('showCut').addEventListener('change', () => { setupPreview(); drawPreview(video.currentTime); });
+  $('renderBtn').addEventListener('click', render);
+})();
+</script>
+
+</body>
+</html>

@@ -564,12 +564,12 @@ canvas.work { display: none; }
     const inl = new Array(n); inl[0] = Float32Array.from(feats.flatMap(f => [f.x, f.y]));
     const P = feats.map(f => [f.x - cx, f.y - cy]);
     let lost = 0;
-    const attempt = (g, pr) => {
+    const mkAttempt = (FT, FP) => (g, pr) => {
       const cs = pr.s * Math.cos(pr.th), sn = pr.s * Math.sin(pr.th);
       const Q = [], Pp = [], C = [];
-      for (let k = 0; k < feats.length; k++) {
-        const m = measure(g, w, h, feats[k], cs, sn, pr.tx, pr.ty, cx, cy);
-        if (m) { Q.push([m.x - cx, m.y - cy]); Pp.push(P[k]); C.push(m.cost); }
+      for (let k = 0; k < FT.length; k++) {
+        const m = measure(g, w, h, FT[k], cs, sn, pr.tx, pr.ty, cx, cy);
+        if (m) { Q.push([m.x - cx, m.y - cy]); Pp.push(FP[k]); C.push(m.cost); }
       }
       if (Q.length < 5) return null;
       const sorted = C.slice().sort((a, b) => a - b), med = sorted[sorted.length >> 1], lim = Math.max(med * 2.5, med + 12);
@@ -582,6 +582,9 @@ canvas.work { display: none; }
       if (s < 0.8 || s > 1.25 || Math.abs(th) > 0.4) return null;
       return { s, th, tx: fit.bx, ty: fit.by, pts: fit.inliers.map(j => Q2[j]) };
     };
+    const attempt = mkAttempt(feats, P);
+    // Features are sorted strongest first; the 32 best are enough to re-align each frame live.
+    const liveAttempt = mkAttempt(feats.slice(0, 32), P.slice(0, 32));
     for (let i = 1; i < n; i++) {
       const g = st.gray[i], a = i - 1, b = Math.max(0, i - 2);
       const prev = { s: A.s[a], th: A.th[a], tx: A.tx[a], ty: A.ty[a] };
@@ -595,7 +598,7 @@ canvas.work { display: none; }
       if (i % 6 === 0) { setProg($('tprog'), i / n); await tick(); }
     }
     setProg($('tprog'), 1);
-    st.A = A; st.inl = inl; st.lost = lost;
+    st.A = A; st.inl = inl; st.lost = lost; st.liveAttempt = liveAttempt; live.ms = 0;
     $('tstatus').textContent = lost ? `Tracked ${n - lost} of ${n} frames. ${lost} frames lost the area and reuse the frame before.` : `Tracked all ${n} frames.`;
     $('trackBtn').disabled = false; $('trackBtn').textContent = 'Track again';
     $('p-tune').hidden = false; $('p-cube').hidden = false; $('p-export').hidden = false;
@@ -729,6 +732,33 @@ canvas.work { display: none; }
     return [a, b, (t - ts[a]) / (ts[b] - ts[a])];
   }
   function interpM(t) { const [a, b, f] = locate(t), M = st.plan.M, L = arr => arr[a] + (arr[b] - arr[a]) * f; return { m: L(M.m), a: L(M.a), x: L(M.x), y: L(M.y) }; }
+  // Line up the frame the video is showing right now from its own pixels, so the correction
+  // never depends on the browser's frame timestamps (Safari's are loose at the start of playback).
+  const live = { buf: null, ms: 0 };
+  function liveCorr(t, force) {
+    const S = interpS(t);
+    let A1 = null;
+    if (st.liveAttempt && video.readyState >= 2 && (force || live.ms < 30)) {
+      const t0 = performance.now();
+      try {
+        const w = st.aw, h = st.ah, actx = $('ana').getContext('2d', { willReadFrequently: true });
+        actx.drawImage(video, 0, 0, w, h);
+        const d = actx.getImageData(0, 0, w, h).data;
+        if (!live.buf || live.buf.length !== w * h) live.buf = new Uint8Array(w * h);
+        const g = live.buf;
+        for (let i = 0, j = 0; i < g.length; i++, j += 4) g[i] = (77 * d[j] + 150 * d[j + 1] + 29 * d[j + 2]) >> 8;
+        const [a, b, f] = locate(t), L = arr => arr[a] + (arr[b] - arr[a]) * f, A = st.A;
+        A1 = st.liveAttempt(g, { s: L(A.s), th: L(A.th), tx: L(A.tx), ty: L(A.ty) });
+      } catch (e) { A1 = null; }
+      live.ms = live.ms * 0.8 + (performance.now() - t0) * 0.2;
+    }
+    if (!A1) return { mm: interpM(t), pts: null };
+    const kx = st.vw / st.aw, ky = st.vh / st.ah, tx = A1.tx * kx, ty = A1.ty * ky;
+    const m = A1.s / Math.exp(S[0]), a = A1.th - S[1], ca = Math.cos(a), sa = Math.sin(a);
+    const cx = st.aw / 2, cy = st.ah / 2, pts = new Float32Array(A1.pts.length * 2);
+    A1.pts.forEach((q, k) => { pts[2 * k] = q[0] + cx; pts[2 * k + 1] = q[1] + cy; });
+    return { mm: { m, a, x: tx - m * (ca * S[2] - sa * S[3]), y: ty - m * (sa * S[2] + ca * S[3]) }, pts };
+  }
   function interpS(t) { const [a, b, f] = locate(t), S = st.plan.S, L = arr => arr[a] + (arr[b] - arr[a]) * f; return S.map(L); }
 
   // ---------- drawing a stabilised frame ----------
@@ -748,7 +778,7 @@ canvas.work { display: none; }
   }
   function drawPreview(t) {
     const p = st.plan; if (!p || !pvView || video.readyState < 2) return;
-    const ctx = pvCtx, { o, z } = pvView, W = pv.width, H = pv.height, mm = interpM(t);
+    const ctx = pvCtx, { o, z } = pvView, W = pv.width, H = pv.height, lc = liveCorr(t), mm = lc.mm;
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = colors.stage; ctx.fillRect(0, 0, W, H);
     setXf(ctx, mm, o, z); ctx.drawImage(video, 0, 0); ctx.setTransform(1, 0, 0, 1, 0, 0);
     if (!pvView.cut) return;
@@ -764,7 +794,7 @@ canvas.work { display: none; }
     path([[r.x, r.y], [r.x + r.w, r.y], [r.x + r.w, r.y + r.h], [r.x, r.y + r.h]].map(([x, y]) => V(applySim(s[0], s[1], s[2], s[3], x * st.vw, y * st.vh)))); ctx.stroke();
     ctx.setLineDash([]); ctx.strokeStyle = colors.accent; ctx.lineWidth = lw * 1.4;
     ctx.strokeRect((c.x - o.x) * z, (c.y - o.y) * z, c.w * z, c.h * z);
-    const [ia, ib, f] = locate(t), pts = st.inl[f < 0.5 ? ia : ib];
+    const [ia, ib, f] = locate(t), pts = lc.pts || st.inl[f < 0.5 ? ia : ib];
     if (pts) {
       const kx = st.vw / st.aw, ky = st.vh / st.ah; ctx.fillStyle = colors.accent2;
       for (let k = 0; k < pts.length; k += 2) { const [x, y] = V(invM(mm, (pts[k] + 0.5) * kx, (pts[k + 1] + 0.5) * ky)); ctx.beginPath(); ctx.arc(x, y, lw * 1.6, 0, 6.2832); ctx.fill(); }
@@ -922,35 +952,47 @@ canvas.work { display: none; }
         audio.ctx.resume();
       } catch (e) { audio = null; }
     }
-    const draw = t => { octx.setTransform(1, 0, 0, 1, 0, 0); octx.fillStyle = '#000'; octx.fillRect(0, 0, out.width, out.height); setXf(octx, interpM(t), o, z); octx.drawImage(video, 0, 0); };
-    draw(0);
-    const tracks = [...out.captureStream().getVideoTracks()];
-    if (keep && audio) tracks.push(...audio.dest.stream.getAudioTracks());
-    const fps = Math.min(60, (st.times.length / st.dur) * sp);
-    const bps = Math.round(Math.min(40e6, Math.max(4e6, out.width * out.height * Math.max(30, fps) * 0.2)));
-    const rec = new MediaRecorder(new MediaStream(tracks), { mimeType: mime, videoBitsPerSecond: bps });
-    const chunks = [];
-    rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
-    rec.onstop = () => {
-      renderHook = null;
-      st.blob = new Blob(chunks, { type: mime.split(';')[0] }); st.ext = ext;
-      const r = $('result'); if (r.src) URL.revokeObjectURL(r.src); r.src = URL.createObjectURL(st.blob); $('resultStage').hidden = false; r.play().catch(() => {});
-      $('outTitle').textContent = 'Your loop'; $('rbarWrap').hidden = true; $('saveBtn').hidden = false;
-      $('renderBtn').disabled = false; $('renderBtn').textContent = 'Make it again';
-      try { wake && wake.release(); } catch (e) {}
-      startPreview();
-    };
+    const draw = t => { const mm = liveCorr(t, true).mm; octx.setTransform(1, 0, 0, 1, 0, 0); octx.fillStyle = '#000'; octx.fillRect(0, 0, out.width, out.height); setXf(octx, mm, o, z); octx.drawImage(video, 0, 0); };
+    // Unlock playback (and sound) while we are still inside the tap, then seek back to the start
+    // and only begin recording once the first frame is really on screen.
+    video.muted = !(keep && audio);
+    try { const pr = video.play(); if (pr) pr.catch(() => {}); } catch (e) {}
     video.pause();
-    phase = 'render';
+    phase = 'render-prep';
     $('renderBtn').disabled = true; $('rbarWrap').hidden = false; setProg($('rprog'), 0); $('saveBtn').hidden = true; $('saveMsg').textContent = '';
     $('outTitle').textContent = 'Rendering…'; setPlayIcon(false);
     try { navigator.wakeLock && navigator.wakeLock.request('screen').then(w => wake = w).catch(() => {}); } catch (e) {}
-    renderHook = t => { draw(t); setProg($('rprog'), t / st.dur); };
-    video.addEventListener('ended', () => { draw(st.dur); setTimeout(() => rec.stop(), 250); }, { once: true });
-    video.loop = false; video.playbackRate = sp; video.muted = !(keep && audio);
-    video.currentTime = 0;
-    rec.start(500);
-    video.play().catch(() => { rec.onstop = null; try { rec.stop(); } catch (e) {} renderHook = null; $('outTitle').textContent = 'Playback was blocked. Tap Make loop video again.'; $('renderBtn').disabled = false; $('rbarWrap').hidden = true; phase = 'preview'; });
+    const fail = msg => { renderHook = null; $('outTitle').textContent = msg; $('renderBtn').disabled = false; $('rbarWrap').hidden = true; startPreview(); };
+    (async () => {
+      video.loop = false; video.playbackRate = sp;
+      await seekTo(0);
+      if (video.currentTime > 0.05) await seekTo(0);
+      draw(0);
+      const tracks = [...out.captureStream().getVideoTracks()];
+      if (keep && audio) tracks.push(...audio.dest.stream.getAudioTracks());
+      const fps = Math.min(60, (st.times.length / st.dur) * sp);
+      const bps = Math.round(Math.min(40e6, Math.max(4e6, out.width * out.height * Math.max(30, fps) * 0.2)));
+      let rec;
+      try { rec = new MediaRecorder(new MediaStream(tracks), { mimeType: mime, videoBitsPerSecond: bps }); }
+      catch (e) { fail('This browser could not start recording. Try Safari on iOS 15 or later, or Chrome.'); return; }
+      const chunks = [];
+      rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+      rec.onstop = () => {
+        renderHook = null;
+        st.blob = new Blob(chunks, { type: mime.split(';')[0] }); st.ext = ext;
+        const r = $('result'); if (r.src) URL.revokeObjectURL(r.src); r.src = URL.createObjectURL(st.blob); $('resultStage').hidden = false; r.play().catch(() => {});
+        $('outTitle').textContent = 'Your loop'; $('rbarWrap').hidden = true; $('saveBtn').hidden = false;
+        $('renderBtn').disabled = false; $('renderBtn').textContent = 'Make it again';
+        try { wake && wake.release(); } catch (e) {}
+        startPreview();
+      };
+      let lastT = 0;
+      renderHook = t => { if (t + 1e-3 < lastT) return; lastT = t; draw(t); setProg($('rprog'), t / st.dur); };
+      video.addEventListener('ended', () => { setTimeout(() => rec.stop(), 250); }, { once: true });
+      rec.start(500);
+      phase = 'render';
+      video.play().catch(() => { rec.onstop = null; try { rec.stop(); } catch (e) {} fail('Playback was blocked. Tap Make loop video again.'); });
+    })();
   }
 
   // ---------- saving ----------

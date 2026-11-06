@@ -2,9 +2,7 @@
 
 ![Loop Steady](assets/og-image.png)
 
-A single-page web app that steadies a handheld video so it loops without a visible jump. It runs entirely in the browser, so the video is never uploaded.
-
-**[Open the app](https://puripant.github.io/loop-steady/)** (after GitHub Pages is turned on)
+A single-page web app that steadies a handheld video so it loops without a visible jump. It runs entirely in the browser, so the video is never uploaded. Made with Claude Opus 5.5.
 
 ## How it works
 
@@ -16,13 +14,3 @@ A single-page web app that steadies a handheld video so it loops without a visib
 6. **Export:** draws each corrected frame to a canvas and records it with `MediaRecorder` at the chosen speed (0.25×–4×), with optional sound.
 
 It also includes a cut-parts overlay and a space-time cube that shows the raw camera path next to the straight crop tube.
-
-## Run locally
-
-It's one static file with no build step. Serve the folder and open `index.html`:
-
-```sh
-python3 -m http.server 8000
-```
-
-For best results use Safari on iOS 15+ or a recent Chrome. Short clips of 2–20 seconds work best.
